@@ -42,25 +42,27 @@ const EventDetailsPage = async ({
 
     const request = await fetch(`${BASE_URL}/api/events/${slug}`);
 
+    const { event } = await request.json();
+
+    if (!event?.description) return notFound();
+
     const {
-        event: {
-            description,
-            image,
-            overview,
-            date,
-            time,
-            location,
-            mode,
-            agenda,
-            audience,
-            tags,
-            organizer
-        }
-    } = await request.json();
+        _id,
+        description,
+        image,
+        overview,
+        date,
+        time,
+        location,
+        mode,
+        agenda,
+        audience,
+        tags,
+        organizer,
+        slug: eventSlug
+    } = event;
 
-    if (!description) return notFound();
-
-    const bookings =10;
+    const bookings = 10;
 
     const similarEvents: IEvent[] = await getSimilarEventsBySlug(slug);
 
@@ -116,7 +118,7 @@ const EventDetailsPage = async ({
                         ): (
                             <p className="text-sm">Be the first to book your spot!</p>
                         )}
-                        <BookEvent />
+                        <BookEvent eventId={event._id} slug={event.slug} />
                     </div>
                 </aside>
             </div>
