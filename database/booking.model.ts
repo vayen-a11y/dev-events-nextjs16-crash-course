@@ -23,8 +23,9 @@ const BookingSchema = new Schema<IBooking>(
             lowercase: true,
             validate: {
                 validator: function (email: string) {
-                    // RFC 5322 compliant email validation regex
-                    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+                    const emailRegex =
+                        /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+
                     return emailRegex.test(email);
                 },
                 message: 'Please provide a valid email address',
@@ -32,48 +33,52 @@ const BookingSchema = new Schema<IBooking>(
         },
     },
     {
-        timestamps: true, // Auto-generate createdAt and updatedAt
+        timestamps: true,
     }
 );
 
-// Pre-save hook to validate events exists before creating booking
-BookingSchema.pre('save', async function (next) {
+// Pre-save hook to validate that the event exists
+BookingSchema.pre('save', async function () {
     const booking = this as IBooking;
 
-    // Only validate eventId if it's new or modified
     if (booking.isModified('eventId') || booking.isNew) {
         try {
             const eventExists = await Event.findById(booking.eventId).select('_id');
 
             if (!eventExists) {
-                const error = new Error(`Event with ID ${booking.eventId} does not exist`);
-                error.name = 'ValidationError';
-                // @ts-ignore
-                return next(error);
+                throw new Error(
+                    `Event with ID ${booking.eventId} does not exist`
+                );
             }
-        } catch {
-            const validationError = new Error('Invalid events ID format or database error');
-            validationError.name = 'ValidationError';
-            // @ts-ignore
-            return next(validationError);
+        } catch (error) {
+            if (error instanceof Error) {
+                throw error;
+            }
+
+            throw new Error('Invalid event ID format or database error');
         }
     }
-
-    // @ts-ignore
-    next();
 });
 
 // Create index on eventId for faster queries
 BookingSchema.index({ eventId: 1 });
 
-// Create compound index for common queries (events bookings by date)
+// Create compound index for common queries
 BookingSchema.index({ eventId: 1, createdAt: -1 });
 
-// Create index on email for user booking lookups
+// Create index on email
 BookingSchema.index({ email: 1 });
 
-// Enforce one booking per events per email
-BookingSchema.index({ eventId: 1, email: 1 }, { unique: true, name: 'uniq_event_email' });
-const Booking = models.Booking || model<IBooking>('Booking', BookingSchema);
+// Enforce one booking per event per email
+BookingSchema.index(
+    { eventId: 1, email: 1 },
+    {
+        unique: true,
+        name: 'uniq_event_email',
+    }
+);
+
+const Booking =
+    models.Booking || model<IBooking>('Booking', BookingSchema);
 
 export default Booking;
